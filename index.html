@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body {
+    margin: 0; padding: 0; background: transparent; overflow: hidden;
+    display: flex; flex-direction: column; height: 100vh;
+    position: relative;
+  }
+  #stage {
+    width: 260px; height: 260px; flex: 0 0 260px; display: block;
+    -webkit-app-region: drag; cursor: grab;
+  }
+  #stage-3d {
+    position: absolute; inset: 0 auto auto 0; width: 260px; height: 260px;
+    pointer-events: none; -webkit-app-region: drag; cursor: grab;
+    opacity: 0; transition: opacity 0.25s ease;
+  }
+  body.three-ready #stage { opacity: 0; }
+  body.three-ready #stage-3d { opacity: 1; }
+  /* The actual status UI: what step it's on, and — while listening or
+     responding — the words themselves as text, not just a pose. A halo or a
+     bouncing dot is a vibe, not information; this is the part someone can
+     actually read to know what's happening. */
+  #caption {
+    flex: 1 1 auto; margin: 0 10px 10px; padding: 8px 12px;
+    border-radius: 12px; background: rgba(20, 16, 14, 0.72);
+    -webkit-app-region: drag; cursor: grab;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #E8DCCB; overflow: hidden;
+    opacity: 0; transition: opacity 0.15s ease;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  #caption.visible { opacity: 1; }
+  #caption-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: #C9A17A;
+  }
+  /* Live mic level while recording — lets you SEE the mic is actually
+     picking up sound, instead of guessing why a turn came back empty. */
+  #vu {
+    height: 4px; border-radius: 2px; overflow: hidden;
+    background: rgba(232, 220, 203, 0.15);
+  }
+  #vu-fill {
+    height: 100%; width: 0%; background: #F0B429;
+    transition: width 0.05s linear;
+  }
+  #caption-text {
+    font-size: 13px; line-height: 1.35;
+    /* Scrolls, and is scrolled programmatically: the newest streamed line is
+       kept in view while the model writes, then the whole body is crawled
+       top-to-bottom at reading pace while it's spoken (renderer-entry.ts).
+       `scroll-behavior: auto` is explicit because a smooth-scroll default
+       would fight the per-frame scrollTop the crawl animation sets. */
+    overflow-y: auto; scroll-behavior: auto;
+    /* Fades the last line out at the bottom edge, so a reply that continues
+       past the visible box looks like it continues rather than looking cut. */
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent 100%);
+  }
+  /* A frameless floating widget shouldn't show a scrollbar gutter; the fade
+     above is the affordance instead. */
+  #caption-text::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <canvas id="stage-3d" aria-hidden="true"></canvas>
+  <div id="caption">
+    <div id="caption-label"></div>
+    <div id="vu"><div id="vu-fill"></div></div>
+    <div id="caption-text"></div>
+  </div>
+  <script src="dist/renderer.js"></script>
+</body>
+</html>

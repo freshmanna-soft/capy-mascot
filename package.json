@@ -1,0 +1,43 @@
+{
+  "name": "capy-mascot",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "build": "esbuild src/renderer-entry.ts --bundle --outfile=dist/renderer.js --format=iife && esbuild src/settings-entry.ts --bundle --outfile=dist/settings.js --format=iife",
+    "start": "npm run build && electron .",
+    "package:mac": "npm run build && electron-builder --mac --dir",
+    "dist:mac": "npm run build && electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^32.3.3",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.23.1",
+    "playwright": "^1.63.0"
+  },
+  "dependencies": {
+    "three": "^0.186.0",
+    "ws": "^8.21.3"
+  },
+  "build": {
+    "appId": "com.capymascot.app",
+    "productName": "Capy Mascot",
+    "files": [
+      "index.html",
+      "settings.html",
+      "dist/**/*",
+      "src/**/*",
+      "canvas/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Capy Mascot uses the microphone for voice chat.",
+        "NSSpeechRecognitionUsageDescription": "Capy Mascot uses speech recognition for voice chat."
+      },
+      "target": ["dir", "dmg", "zip"]
+    }
+  }
+}

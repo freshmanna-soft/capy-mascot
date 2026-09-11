@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Capy Mascot Settings</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px; background: #17110f; color: #f2e5d2;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh; overflow-y: scroll;
+  }
+  body::-webkit-scrollbar { width: 10px; }
+  body::-webkit-scrollbar-track { background: #17110f; }
+  body::-webkit-scrollbar-thumb { background: #5d4232; border: 3px solid #17110f; border-radius: 8px; }
+  body::-webkit-scrollbar-thumb:hover { background: #8a6248; }
+  h1 { margin: 0 0 6px; color: #f0b429; font-size: 24px; }
+  .subtitle { margin: 0 0 24px; color: #bca999; font-size: 13px; }
+  .group { padding: 16px 0; border-top: 1px solid #3b2b24; }
+  .group-title { margin: 0 0 12px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #c9a17a; }
+  label { display: flex; align-items: center; gap: 10px; min-height: 34px; font-size: 14px; cursor: pointer; }
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: #f0b429; }
+  input[type="range"] { width: 150px; accent-color: #f0b429; }
+  select { min-width: 180px; padding: 7px; border: 1px solid #5d4232; border-radius: 7px; background: #271c18; color: #fff0dd; }
+  .control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; font-size: 14px; }
+  .control-value { min-width: 38px; color: #c9a17a; text-align: right; font-variant-numeric: tabular-nums; }
+  .position { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .position div { padding: 10px; border-radius: 8px; background: #271c18; color: #d4c1ad; font-size: 12px; }
+  .position strong { display: block; margin-top: 3px; color: #fff0dd; font-size: 15px; }
+  #preview-wrap {
+    border-radius: 10px; background: #0e0a08; overflow: hidden;
+    height: 240px; margin-bottom: 4px;
+  }
+  #preview { width: 100%; height: 100%; display: block; cursor: grab; }
+  #preview:active { cursor: grabbing; }
+  .preview-hint { margin: 6px 0 0; font-size: 11px; color: #8a7a6b; }
+  .actions { display: flex; gap: 8px; margin-top: 24px; }
+  button { border: 0; border-radius: 8px; padding: 10px 13px; cursor: pointer; font: inherit; }
+  #reset-position { background: #4a3428; color: #f2e5d2; }
+  #restart { background: #f0b429; color: #24170e; }
+  #test-microphone { background: #5d4232; color: #f2e5d2; }
+  #status { min-height: 18px; margin-top: 12px; color: #bca999; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Capy Mascot</h1>
+  <p class="subtitle">Customize the mascot without covering the character.</p>
+
+  <section class="group">
+    <h2 class="group-title">Behavior</h2>
+    <label><input id="local-voice" type="checkbox" /> Use local voice offline</label>
+    <label><input id="local-llm" type="checkbox" /> Use local LLM (Ollama) instead of remote proxy</label>
+    <label><input id="always-on-top" type="checkbox" /> Keep mascot on top</label>
+    <label><input id="launch-login" type="checkbox" /> Start at login</label>
+    <div class="actions"><button id="test-microphone" type="button">Test microphone</button></div>
+  </section>
+
+  <section class="group">
+    <h2 class="group-title">Avatar position</h2>
+    <div id="preview-wrap"><canvas id="preview"></canvas></div>
+    <p class="preview-hint">Drag to look around — this is a free-look camera, not the mascot's own view.</p>
+    <div class="control-row"><span>Horizontal</span><input id="avatar-x" type="range" min="-0.7" max="0.7" step="0.01" /><strong id="avatar-x-value" class="control-value"></strong></div>
+    <div class="control-row"><span>Depth</span><input id="avatar-y" type="range" min="-0.7" max="0.7" step="0.01" /><strong id="avatar-y-value" class="control-value"></strong></div>
+    <div class="control-row"><span>Vertical</span><input id="avatar-z" type="range" min="-0.7" max="0.7" step="0.01" /><strong id="avatar-z-value" class="control-value"></strong></div>
+  </section>
+
+  <section class="group">
+    <h2 class="group-title">Character</h2>
+    <div class="control-row"><span>Outfit</span><select id="outfit"><option value="none">No outfit</option><option value="work">Blue work shirt</option><option value="sun">Sunset shirt</option></select></div>
+    <div class="control-row"><span>Default mood</span><select id="default-mood"><option value="neutral">Neutral</option><option value="happy">Happy</option><option value="unsure">Unsure</option><option value="sorry">Sorry</option><option value="alert">Alert</option></select></div>
+    <label><input id="work-helmet" type="checkbox" /> Wear helmet while working</label>
+  </section>
+
+  <section class="group">
+    <h2 class="group-title">IBM Watson voice</h2>
+    <div class="control-row"><span>Voice</span><select id="watson-voice">
+      <option value="en-US_MichaelExpressive">Michael Expressive</option>
+      <option value="en-US_AllisonExpressive">Allison Expressive</option>
+      <option value="en-US_EmmaExpressive">Emma Expressive</option>
+      <option value="en-US_LisaExpressive">Lisa Expressive</option>
+      <option value="en-US_EthanNatural">Ethan Natural</option>
+      <option value="en-US_EmilyV3Voice">Emily V3</option>
+    </select></div>
+  </section>
+
+  <section class="group">
+    <h2 class="group-title">Saved position</h2>
+    <div class="position">
+      <div>X<strong id="position-x">Default</strong></div>
+      <div>Y<strong id="position-y">Default</strong></div>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button id="reset-position" type="button">Reset position</button>
+    <button id="restart" type="button">Restart mascot</button>
+  </div>
+  <div id="status" aria-live="polite"></div>
+
+<script src="dist/settings.js"></script>
+</body>
+</html>
