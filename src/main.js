@@ -128,7 +128,12 @@ function bridgeStatusSummary() {
   const key = resolveKey(lastStatus);
   const bits = [key];
   if (lastStatus.branch) bits.push(`branch ${lastStatus.branch}`);
-  if (lastStatus.request) bits.push(`request: ${lastStatus.request}`);
+  if (lastStatus.request) bits.push(`request: ${lastStatus.request.slice(0, 120)}`);
+  if (lastStatus.prUrl) bits.push(`PR: ${lastStatus.prUrl}`);
+  if (lastStatus.elapsedSec) bits.push(`elapsed: ${lastStatus.elapsedSec}s`);
+  if (lastStatus.errors > 0) bits.push(`errors: ${lastStatus.errors}`);
+  if (lastStatus.flaky) bits.push('flaky: yes');
+  if (lastStatus.model) bits.push(`model: ${lastStatus.model}`);
   return bits.join(', ');
 }
 

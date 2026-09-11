@@ -59,7 +59,22 @@ function stage(name, args) {
 async function executeStaged(name, args) {
   if (name === 'trigger_build') return triggerBuild(args);
   if (name === 'create_github_issue') return createGithubIssue(args);
+  if (name === 'approve_pr') return approvePr(args);
   return { error: `Unknown staged action: ${name}` };
+}
+
+async function approvePr({ prUrl }) {
+  const res = await fetch(`${BRIDGE_ORIGIN}/approve`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prUrl }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`/approve returned ${res.status}: ${detail.slice(0, 200)}`);
+  }
+  return res.json();
 }
 
 async function triggerBuild({ request }) {
@@ -123,7 +138,7 @@ const TOOLS = [
   },
   {
     name: 'get_job_log',
-    description: 'Get the tail of a job\'s log. Omit the id for the current/most recent job.',
+    description: 'Get a structured summary of a job\'s log: final result, cost, actions, errors, and review verdicts. Omit id for the current/most recent job.',
     parameters: {
       type: 'object',
       properties: {
@@ -136,8 +151,43 @@ const TOOLS = [
       });
       if (!res.ok) throw new Error(`/log returned ${res.status}`);
       const text = await res.text();
-      // A full log is not something to speak aloud or burn context on.
-      return { log: text.slice(-2000) };
+      // The log is JSONL — extract the signal instead of dumping raw lines.
+      const lines = text.trim().split('\n').filter(Boolean);
+      let result = null, cost = null, turns = null, reviews = [];
+      for (const line of lines) {
+        try {
+          const msg = JSON.parse(line);
+          if (msg.type === 'result') {
+            result = msg.result?.slice(0, 300) ?? null;
+            cost = msg.total_cost_usd ?? null;
+            turns = msg.num_turns ?? null;
+          }
+          // Review verdict lines: "=== review: <role> ===" then VERDICT: APPROVE/REQUEST_CHANGES
+          if (msg.type === 'system' && typeof msg.result === 'string' && msg.result.startsWith('VERDICT:')) {
+            reviews.push(msg.result.split('\n')[0]);
+          }
+        } catch { /* skip non-JSON lines */ }
+      }
+      // Also scrape plain-text review sections from the raw log
+      const verdictMatches = text.matchAll(/=== review: (\S+) ===\nVERDICT: (\w+)/g);
+      for (const m of verdictMatches) {
+        const entry = `${m[1]}: ${m[2]}`;
+        if (!reviews.includes(entry)) reviews.push(entry);
+      }
+      return { result, cost_usd: cost, turns, reviews };
+    },
+  },
+  {
+    name: 'get_open_prs',
+    description: 'List open pull requests in the GitHub repo that the dev-bridge has created and are awaiting review or approval.',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const { stdout } = await execFileAsync(
+        'gh',
+        ['pr', 'list', '--repo', GITHUB_REPO, '--state', 'open', '--json', 'number,title,url,reviewDecision,headRefName', '--limit', '10'],
+        { timeout: FETCH_TIMEOUT_MS * 2 }
+      );
+      return JSON.parse(stdout);
     },
   },
   {
@@ -170,6 +220,20 @@ const TOOLS = [
       required: ['title'],
     },
     execute: (args) => stage('create_github_issue', args),
+  },
+  {
+    name: 'approve_pr',
+    description:
+      'Stage an approval of a pull request by its URL. Does NOT approve it — only stages it. ' +
+      'Tell the user the PR number/title and ask them to confirm out loud before it actually happens.',
+    parameters: {
+      type: 'object',
+      properties: {
+        prUrl: { type: 'string', description: 'The full GitHub PR URL to approve.' },
+      },
+      required: ['prUrl'],
+    },
+    execute: (args) => stage('approve_pr', args),
   },
 ];
 
