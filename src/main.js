@@ -594,11 +594,10 @@ function createSettingsWindow() {
 // presence: a 1x1 transparent icon plus setTitle for the visible emoji, no
 // custom art needed.
 function createTray() {
-  const icon = nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
-  );
+  const iconPath = path.join(__dirname, '..', 'assets', 'tray-icon.png');
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 22, height: 22 });
+  icon.setTemplateImage(true); // adapts to light/dark menu bar automatically
   tray = new Tray(icon);
-  tray.setTitle('🐹');
   tray.setToolTip('Capy Mascot');
   // No tray.on('click', ...) — a bare click on the icon was opening Settings
   // on its own, on top of the context menu's own "Settings..." item doing
