@@ -638,6 +638,7 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     diagnosticLog(`[mic] startup permission status=${systemPreferences.getMediaAccessStatus('microphone')}`);
   }
+  if (process.platform === 'darwin') app.dock.hide();
   voice.setForceLocal(useLocalVoice);
   voice.setWatsonVoice(settings.watsonVoice);
   chat.setUseLocal(useLocalLLM);

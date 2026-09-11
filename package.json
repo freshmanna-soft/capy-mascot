@@ -35,7 +35,8 @@
       "category": "public.app-category.utilities",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Capy Mascot uses the microphone for voice chat.",
-        "NSSpeechRecognitionUsageDescription": "Capy Mascot uses speech recognition for voice chat."
+        "NSSpeechRecognitionUsageDescription": "Capy Mascot uses speech recognition for voice chat.",
+        "LSUIElement": true
       },
       "target": ["dir", "dmg", "zip"]
     }
