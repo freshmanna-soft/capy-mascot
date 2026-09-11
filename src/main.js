@@ -487,7 +487,12 @@ ipcMain.handle('mic:request', async () => {
   }
   const status = systemPreferences.getMediaAccessStatus('microphone');
   diagnosticLog(`[mic] permission status before renderer request=${status}`);
-  return status !== 'denied';
+  if (status === 'granted') return true;
+  if (status === 'denied') return false; // must be re-enabled in System Settings
+  // 'not-determined' — trigger the system prompt now
+  const granted = await systemPreferences.askForMediaAccess('microphone');
+  diagnosticLog(`[mic] askForMediaAccess result=${granted}`);
+  return granted;
 });
 ipcMain.on('mic:open-settings', () => {
   if (process.platform === 'darwin') {
