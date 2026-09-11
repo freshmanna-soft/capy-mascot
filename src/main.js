@@ -252,6 +252,11 @@ async function startListening() {
   }
   chatSession = session;
   diagnosticLog(`[metrics] stt.ready_ms=${Date.now() - listeningStartedAt}`);
+  // Focus the window before asking for the mic so macOS TCC sees a foreground
+  // window when getUserMedia fires — required for the permission prompt to
+  // appear on LSUIElement (background agent) apps.
+  win?.show();
+  win?.focus();
   win?.webContents.send('mascot:record-control', 'start');
 }
 
