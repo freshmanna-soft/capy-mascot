@@ -1,6 +1,8 @@
 {
   "name": "capy-mascot",
   "version": "1.0.0",
+  "description": "macOS Electron desktop mascot with 3D capybara, IBM Watson voice, and AI chat",
+  "author": "Freshmanna",
   "private": true,
   "main": "src/main.js",
   "scripts": {
@@ -33,8 +35,6 @@
     ],
     "mac": {
       "category": "public.app-category.utilities",
-      "entitlementsFile": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Capy Mascot uses the microphone for voice chat.",
         "NSSpeechRecognitionUsageDescription": "Capy Mascot uses speech recognition for voice chat.",
