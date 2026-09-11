@@ -38,16 +38,24 @@ const canvas = document.getElementById('stage') as HTMLCanvasElement;
 const renderer = new CapybaraRenderer(canvas);
 const ctx = canvas.getContext('2d')!; // same context CapybaraRenderer already owns — drawing after render() layers on top
 
-// There used to be an eager getUserMedia() probe here, run unconditionally
-// at page load to "check" mic permission at startup. Removed: calling
-// getUserMedia with no user gesture, before the window is even shown/
-// focused, is exactly how macOS ends up silently auto-denying the request
-// instead of showing the permission dialog — and once denied that way, TCC
-// won't prompt again until manually reset (`tccutil reset Microphone
-// com.capymascot.app`). The main process's own startup log already reports
-// the current status non-invasively via systemPreferences.getMediaAccessStatus,
-// with no request involved; the real request only happens from
-// startRecording(), below, in direct response to the user pressing the hotkey.
+// Mic permission probe — runs once after the window is visible and focused.
+// getUserMedia is the only call that reliably triggers the macOS TCC prompt
+// for packaged Electron apps (askForMediaAccess is silently ignored on
+// macOS 12+). We do it here, not at module load, because TCC silently
+// auto-denies requests made before the window has focus. The 300ms delay
+// gives the window time to appear and receive focus before the request fires.
+// If already granted or denied, getUserMedia resolves/rejects instantly with
+// no dialog — no repeated prompting on every launch.
+window.addEventListener('load', () => {
+  setTimeout(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop()); // prompt accepted — release immediately
+    } catch {
+      // denied or no device — startRecording() will handle it properly when the hotkey fires
+    }
+  }, 300);
+});
 
 const threeCanvas = document.getElementById('stage-3d') as HTMLCanvasElement;
 const threeRenderer = new THREE.WebGLRenderer({ canvas: threeCanvas, alpha: true, antialias: true });
