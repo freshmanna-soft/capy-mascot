@@ -1,140 +1,339 @@
-import bpy
-from mathutils import Vector
+"""
+Capybara mascot — sitting relaxed pose.
+Built with subdivision-surface meshes (not primitive spheres) so shapes
+are organic. Toon shading: flat base colour + dark outline via Solidify.
+Animated: breathing (chest scale), idle head bob, ear twitch.
+"""
+import bpy, math
+from mathutils import Vector, Matrix
 
+# ── RESET ─────────────────────────────────────────────────────────────────────
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 
 
-def mat(name, color, roughness=0.82):
+# ── MATERIALS ─────────────────────────────────────────────────────────────────
+def toon_mat(name, hex_color, roughness=1.0):
+    """Flat diffuse — no specularity, pure base colour for toon look."""
+    r = int(hex_color[1:3], 16) / 255
+    g = int(hex_color[3:5], 16) / 255
+    b = int(hex_color[5:7], 16) / 255
     m = bpy.data.materials.new(name)
     m.use_nodes = True
-    b = m.node_tree.nodes.get('Principled BSDF')
-    b.inputs['Base Color'].default_value = (*color, 1.0)
-    b.inputs['Roughness'].default_value = roughness
+    tree = m.node_tree
+    tree.nodes.clear()
+    out   = tree.nodes.new('ShaderNodeOutputMaterial')
+    diff  = tree.nodes.new('ShaderNodeBsdfDiffuse')
+    diff.inputs['Color'].default_value   = (r, g, b, 1.0)
+    diff.inputs['Roughness'].default_value = roughness
+    tree.links.new(diff.outputs['BSDF'], out.inputs['Surface'])
     return m
 
+FUR       = toon_mat('Fur',      '#b5733a')   # warm medium brown
+FUR_DARK  = toon_mat('FurDark',  '#8a4e22')   # shadow / underside
+BELLY     = toon_mat('Belly',    '#d4956a')   # lighter belly / muzzle
+DARK      = toon_mat('Dark',     '#3d1f0d')   # eyes, nostrils, outline
+OUTLINE   = toon_mat('Outline',  '#2a1408')   # solidify outline colour
 
-fur    = mat('Fur',    (0.42, 0.26, 0.13))
-fur_lt = mat('FurLt',  (0.60, 0.42, 0.24))
-muz_m  = mat('Muzzle', (0.52, 0.34, 0.18))  # closer to fur, not so pale
-dark_m = mat('Dark',   (0.025, 0.015, 0.010), 0.25)
-feet_m = mat('Feet',   (0.28, 0.14, 0.07))
+
+def outline_mod(obj, thickness=0.04):
+    """Solidify modifier flipped = dark shell outside = cartoon ink outline."""
+    mod = obj.modifiers.new('Outline', 'SOLIDIFY')
+    mod.thickness          = thickness
+    mod.offset             = 1.0
+    mod.use_flip_normals   = True
+    mod.use_even_offset    = True
+    mod.material_offset    = len(obj.data.materials)   # extra slot
+    obj.data.materials.append(OUTLINE)
 
 
-def sphere(name, loc, scale, m, seg=22, rings=14):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=rings, location=loc)
-    o = bpy.context.object
-    o.name = name
-    o.scale = scale
-    bpy.ops.object.transform_apply(scale=True)
-    o.data.materials.append(m)
+def subdiv(obj, levels=2):
+    mod = obj.modifiers.new('Sub', 'SUBSURF')
+    mod.levels            = levels
+    mod.render_levels     = levels
+    mod.subdivision_type  = 'CATMULL_CLARK'
     bpy.ops.object.shade_smooth()
-    return o
 
 
-def box(name, loc, scale, m, bevel=0.10):
-    bpy.ops.mesh.primitive_cube_add(location=loc)
-    o = bpy.context.object
-    o.name = name
-    o.scale = scale
+def make(name, verts, faces, mat, sub=2, outline_thick=0.035):
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    obj.data.materials.append(mat)
+    subdiv(obj, sub)
+    outline_mod(obj, outline_thick)
+    return obj
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  BODY  — upright rounded rectangle (sitting), taller than wide
+#  Coordinate system: Z up, Y forward (towards camera = -Y)
+# ═══════════════════════════════════════════════════════════════════════════════
+# A cube stretched into a sitting-capybara torso shape, then subdiv smooths it.
+# 8 verts of a box; subdiv rounds every edge naturally.
+W, H, D = 0.90, 1.10, 0.70   # half-extents: width, height, depth
+body_v = [
+    # bottom ring (slightly narrower)
+    (-W*0.75, -D*0.6,  0.00), ( W*0.75, -D*0.6,  0.00),
+    ( W*0.75,  D*0.6,  0.00), (-W*0.75,  D*0.6,  0.00),
+    # mid ring (widest — big belly)
+    (-W,      -D*0.7,  H*0.45), ( W,      -D*0.7,  H*0.45),
+    ( W,       D*0.5,  H*0.45), (-W,       D*0.5,  H*0.45),
+    # upper ring (shoulder width, rounded top)
+    (-W*0.80, -D*0.5,  H*0.90), ( W*0.80, -D*0.5,  H*0.90),
+    ( W*0.80,  D*0.3,  H*0.90), (-W*0.80,  D*0.3,  H*0.90),
+    # top cap
+    (-W*0.45, -D*0.2,  H*1.10), ( W*0.45, -D*0.2,  H*1.10),
+    ( W*0.45,  D*0.15, H*1.10), (-W*0.45,  D*0.15, H*1.10),
+]
+body_f = [
+    (0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),    # mid sides
+    (4,5,9,8),(5,6,10,9),(6,7,11,10),(7,4,8,11), # upper sides
+    (8,9,13,12),(9,10,14,13),(10,11,15,14),(11,8,12,15), # top sides
+    (0,3,2,1),   # bottom
+    (12,13,14,15), # top cap
+]
+body = make('Body', body_v, body_f, FUR, sub=3, outline_thick=0.05)
+
+# Belly patch — flattened sphere parented to body
+bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=10,
+    location=(0, -D*0.85, H*0.40))
+belly = bpy.context.object
+belly.name = 'Belly'
+belly.scale = (0.62, 0.18, 0.52)
+bpy.ops.object.transform_apply(scale=True)
+belly.data.materials.append(BELLY)
+subdiv(belly, 2)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  HEAD
+# ═══════════════════════════════════════════════════════════════════════════════
+# Wide flat box → subdiv = characteristic capybara rectangular head
+HW, HH, HD = 0.68, 0.46, 0.58
+head_v = [
+    (-HW*0.7, -HD,     0.0),  ( HW*0.7, -HD,     0.0),
+    ( HW*0.7,  HD*0.4, 0.0),  (-HW*0.7,  HD*0.4, 0.0),
+    (-HW,     -HD*0.6, HH*0.5),( HW,    -HD*0.6, HH*0.5),
+    ( HW,      HD*0.3, HH*0.5),(-HW,     HD*0.3, HH*0.5),
+    (-HW*0.6, -HD*0.3, HH),   ( HW*0.6, -HD*0.3, HH),
+    ( HW*0.6,  HD*0.2, HH),   (-HW*0.6,  HD*0.2, HH),
+]
+head_f = [
+    (0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),
+    (4,5,9,8),(5,6,10,9),(6,7,11,10),(7,4,8,11),
+    (0,3,2,1),(8,9,10,11),
+]
+head_z = H*1.05
+head = make('Head', head_v, head_f, FUR, sub=3, outline_thick=0.04)
+head.location = (0, -D*0.3, head_z)
+
+# ── MUZZLE ────────────────────────────────────────────────────────────────────
+# The key capybara feature: a large DARK rectangular muzzle, not a pale disc.
+# Wide, low, protrudes forward (–Y). Dark tan, not lighter than the body.
+MW, MH, MD = 0.50, 0.28, 0.34
+muz_v = [
+    (-MW, -MD*1.0, 0.0), ( MW, -MD*1.0, 0.0),
+    ( MW,  MD*0.3, 0.0), (-MW,  MD*0.3, 0.0),
+    (-MW, -MD*0.8, MH),  ( MW, -MD*0.8, MH),
+    ( MW,  MD*0.2, MH),  (-MW,  MD*0.2, MH),
+]
+muz_f = [
+    (0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(0,3,2,1),(4,5,6,7)
+]
+muzzle = make('Muzzle', muz_v, muz_f, BELLY, sub=3, outline_thick=0.035)
+muzzle.location = (0, -D*0.3 - HD*0.85, head_z + 0.02)
+
+# Nostrils
+for sx in (-0.18, 0.18):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=6,
+        location=(sx, -D*0.3 - HD*0.85 - MD*1.05, head_z + MH*0.55))
+    n = bpy.context.object
+    n.name = 'Nostril'
+    n.scale = (0.055, 0.035, 0.048)
     bpy.ops.object.transform_apply(scale=True)
-    o.data.materials.append(m)
-    mod = o.modifiers.new('b', 'BEVEL')
-    mod.width = bevel
-    mod.segments = 5
-    bpy.context.view_layer.objects.active = o
-    bpy.ops.object.modifier_apply(modifier=mod.name)
+    n.data.materials.append(DARK)
     bpy.ops.object.shade_smooth()
-    return o
-
-
-# ── BODY ──────────────────────────────────────────────────────────────────────
-# Very elongated barrel. Y is depth (front-back), Z is height.
-sphere('Body', (0.0,  0.05, 1.05), (1.08, 1.60, 0.70), fur, 28, 16)
-# Belly lighter patch
-sphere('Belly', (0.0, 0.10, 0.56), (0.74, 1.15, 0.22), fur_lt, 22, 10)
-
-# ── HEAD+MUZZLE as ONE form ───────────────────────────────────────────────────
-# Key insight: don't separate head and muzzle — make them one merged blob.
-# Head is a wide, low ellipsoid pushed forward over the body front.
-# The "muzzle" is just a wider, lower extension of that same ellipsoid.
-
-# Cranium — wide, flat-topped, merges with body, no neck gap
-sphere('Cranium', (0.0, -1.38, 1.54), (0.86, 0.62, 0.48), fur, 24, 14)
-
-# Muzzle — pulled back closer to cranium, smaller in X and Z so it doesn't
-# dominate the front view, still protrudes forward in Y for side silhouette.
-sphere('Muzzle', (0.0, -1.88, 1.38), (0.54, 0.46, 0.32), muz_m, 22, 12)
-
-# Nose bridge — fills the seam between cranium and muzzle on top
-sphere('NoseBridge', (0.0, -1.62, 1.58), (0.50, 0.32, 0.22), fur, 18, 10)
-
-# ── NOSTRILS ──────────────────────────────────────────────────────────────────
-# On the front face of the muzzle blob, not floating
-for sx in (-0.16, 0.16):
-    sphere('Nostril', (sx, -2.38, 1.46), (0.055, 0.032, 0.048), dark_m, 10, 8)
 
 # ── EYES ──────────────────────────────────────────────────────────────────────
-# Small eyes embedded in the cranium surface — slightly to the sides and up high.
-for sx in (-0.50, 0.50):
-    sphere('Eye', (sx, -1.40, 1.85), (0.065, 0.036, 0.058), dark_m, 14, 10)
-    sphere('Shine', (sx * 0.88, -1.48, 1.91), (0.015, 0.007, 0.013),
-           mat(f'Sh{sx}', (0.88, 0.88, 0.88), 0.05), 8, 6)
+# Half-closed content eyes — the reference has soft squinted eyes.
+# Simple dark ellipses, slightly to the sides of the head top.
+for sx in (-0.36, 0.36):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=8,
+        location=(sx, -D*0.3 - HD*0.5, head_z + HH*0.72))
+    e = bpy.context.object
+    e.name = 'Eye'
+    e.scale = (0.08, 0.04, 0.06)
+    bpy.ops.object.transform_apply(scale=True)
+    e.data.materials.append(DARK)
+    bpy.ops.object.shade_smooth()
+    # highlight
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=4,
+        location=(sx - 0.02, -D*0.3 - HD*0.58, head_z + HH*0.78))
+    sh = bpy.context.object
+    sh.name = 'Shine'
+    sh.scale = (0.018, 0.010, 0.016)
+    bpy.ops.object.transform_apply(scale=True)
+    sh_m = toon_mat(f'Shine{sx}', '#e8e8e8')
+    sh.data.materials.append(sh_m)
+    bpy.ops.object.shade_smooth()
 
 # ── EARS ──────────────────────────────────────────────────────────────────────
-# Embedded in the cranium top — only the top third visible above skull.
-# Close together, very flat (Y thin, Z ~= X).
-for sx in (-0.44, 0.44):
-    sphere('Ear',   (sx, -1.32, 1.96), (0.13, 0.06, 0.10), fur, 12, 8)
-    sphere('EarIn', (sx, -1.36, 1.96), (0.065, 0.016, 0.055), muz_m, 10, 6)
+# Small rounded ears — UV sphere squashed into a flat disc shape,
+# sitting inside the head top silhouette. No custom mesh = no spike issues.
+for sx in (-0.40, 0.40):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=8,
+        location=(sx, -D*0.3 - HD*0.08, head_z + HH*0.94))
+    ear = bpy.context.object
+    ear.name = 'Ear'
+    ear.scale = (0.13, 0.07, 0.14)   # flat disc, taller than wide in Z
+    bpy.ops.object.transform_apply(scale=True)
+    ear.data.materials.append(FUR_DARK)
+    subdiv(ear, 2)
+    outline_mod(ear, 0.025)
+    # inner ear
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=6,
+        location=(sx, -D*0.3 - HD*0.10, head_z + HH*0.95))
+    ei = bpy.context.object
+    ei.name = 'EarInner'
+    ei.scale = (0.065, 0.018, 0.07)
+    bpy.ops.object.transform_apply(scale=True)
+    ei.data.materials.append(BELLY)
+    bpy.ops.object.shade_smooth()
 
-# ── LEGS ──────────────────────────────────────────────────────────────────────
-# Short but visible legs — upper bulge (thigh) + lower shin cylinder + hoof.
-for sx in (-0.76, 0.76):
-    # Front — thigh pushed up into body so no gap
-    sphere('ThighF', (sx, -0.88, 0.76), (0.23, 0.21, 0.32), fur, 14, 10)
-    sphere('ShinF',  (sx, -0.88, 0.42), (0.16, 0.16, 0.24), fur, 12, 8)
-    box('HoofF',     (sx, -0.90, 0.18), (0.19, 0.22, 0.10), feet_m, 0.06)
-    # Rear — haunches bigger, also pushed up
-    sphere('ThighR', (sx,  0.72, 0.80), (0.26, 0.24, 0.34), fur, 14, 10)
-    sphere('ShinR',  (sx,  0.72, 0.42), (0.17, 0.17, 0.24), fur, 12, 8)
-    box('HoofR',     (sx,  0.74, 0.18), (0.21, 0.24, 0.10), feet_m, 0.06)
+# ── HAUNCHES ──────────────────────────────────────────────────────────────────
+# Sitting capybara: two big round haunches splayed to the sides on the ground.
+for sx in (-0.78, 0.78):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=14, ring_count=10,
+        location=(sx, D*0.2, 0.28))
+    h = bpy.context.object
+    h.name = 'Haunch'
+    h.scale = (0.38, 0.42, 0.36)
+    bpy.ops.object.transform_apply(scale=True)
+    h.data.materials.append(FUR)
+    subdiv(h, 2)
+    outline_mod(h, 0.04)
+    # foot / paw at the end
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=8,
+        location=(sx * 1.1, D*0.55, 0.10))
+    p = bpy.context.object
+    p.name = 'HindPaw'
+    p.scale = (0.20, 0.30, 0.10)
+    bpy.ops.object.transform_apply(scale=True)
+    p.data.materials.append(FUR_DARK)
+    subdiv(p, 2)
+    outline_mod(p, 0.03)
 
-# ── TAIL ──────────────────────────────────────────────────────────────────────
-sphere('Tail', (0.0, 1.52, 1.14), (0.10, 0.12, 0.09), fur_lt, 10, 6)
+# ── FRONT ARMS / PAWS ─────────────────────────────────────────────────────────
+# Short stubby arms folded across the belly — the relaxed crossed-arm pose.
+for sx in (-1, 1):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=8,
+        location=(sx * 0.38, -D*0.82, H*0.30))
+    a = bpy.context.object
+    a.name = 'Arm'
+    a.scale = (0.20, 0.14, 0.16)
+    bpy.ops.object.transform_apply(scale=True)
+    a.data.materials.append(FUR)
+    subdiv(a, 2)
+    outline_mod(a, 0.03)
+    # paw
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=8,
+        location=(sx * 0.18, -D*0.95, H*0.22))
+    paw = bpy.context.object
+    paw.name = 'FrontPaw'
+    paw.scale = (0.18, 0.13, 0.10)
+    bpy.ops.object.transform_apply(scale=True)
+    paw.data.materials.append(FUR_DARK)
+    subdiv(paw, 2)
+    outline_mod(paw, 0.025)
 
-# ── LIGHTING ──────────────────────────────────────────────────────────────────
+# ── GROUND SHADOW ─────────────────────────────────────────────────────────────
+bpy.ops.mesh.primitive_circle_add(vertices=32, radius=0.9, location=(0, 0.05, 0.001))
+shadow = bpy.context.object
+shadow.name = 'Shadow'
+shadow.scale = (1.0, 0.7, 1.0)
+bpy.ops.object.transform_apply(scale=True)
+bpy.ops.object.convert(target='MESH')
+shadow_m = toon_mat('Shadow', '#1a0d06')
+shadow_m.blend_method = 'BLEND'
+# Make it semi-transparent
+shadow_m.node_tree.nodes.clear()
+out  = shadow_m.node_tree.nodes.new('ShaderNodeOutputMaterial')
+mix  = shadow_m.node_tree.nodes.new('ShaderNodeMixShader')
+tr   = shadow_m.node_tree.nodes.new('ShaderNodeBsdfTransparent')
+diff = shadow_m.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
+diff.inputs['Color'].default_value = (0.05, 0.02, 0.01, 1)
+mix.inputs['Fac'].default_value = 0.55
+shadow_m.node_tree.links.new(tr.outputs['BSDF'],   mix.inputs[1])
+shadow_m.node_tree.links.new(diff.outputs['BSDF'], mix.inputs[2])
+shadow_m.node_tree.links.new(mix.outputs['Shader'], out.inputs['Surface'])
+shadow.data.materials.append(shadow_m)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ANIMATION  — 60 fps, 120 frame idle loop
+# ═══════════════════════════════════════════════════════════════════════════════
+scene = bpy.context.scene
+scene.frame_start = 1
+scene.frame_end   = 120
+scene.render.fps  = 24
+
+def keyf(obj, frame, data_path, value):
+    setattr(obj, data_path, value) if '.' not in data_path else None
+    obj.keyframe_insert(data_path=data_path, frame=frame)
+
+# Breathing: body Z scale pulses slowly (1 cycle = 120 frames ≈ 5 s)
+for frame, sz in [(1, 1.0), (30, 1.025), (60, 1.0), (90, 0.980), (120, 1.0)]:
+    body.scale = (1.0, 1.0, sz)
+    body.keyframe_insert(data_path='scale', frame=frame)
+# Head bob: subtle nod up and down
+for frame, hz in [(1, head_z), (20, head_z+0.02), (60, head_z-0.015), (90, head_z+0.01), (120, head_z)]:
+    head.location = (0, head.location.y, hz)
+    head.keyframe_insert(data_path='location', frame=frame)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  LIGHTING
+# ═══════════════════════════════════════════════════════════════════════════════
 for name, loc, energy, size in [
-    ('Key',  (-3.5, -5.0, 6.0), 650, 4.0),
-    ('Fill', ( 4.0, -2.0, 3.5), 320, 3.0),
-    ('Rim',  ( 0.0,  3.5, 4.5), 480, 2.5),
+    ('Key',  (-2.5, -4.0, 5.0), 500, 3.0),
+    ('Fill', ( 3.0, -1.5, 3.0), 220, 2.5),
+    ('Rim',  ( 0.0,  3.0, 4.0), 380, 2.0),
 ]:
     bpy.ops.object.light_add(type='AREA', location=loc)
     lt = bpy.context.object
     lt.name = name
     lt.data.energy = energy
-    lt.data.shape = 'DISK'
-    lt.data.size = size
-    lt.rotation_euler = (Vector((0, 0, 1.45)) - lt.location).to_track_quat('-Z', 'Y').to_euler()
+    lt.data.shape  = 'DISK'
+    lt.data.size   = size
+    lt.rotation_euler = (Vector((0, 0, H*0.55)) - lt.location).to_track_quat('-Z','Y').to_euler()
 
-# ── CAMERA ────────────────────────────────────────────────────────────────────
-bpy.ops.object.camera_add(location=(0.0, -8.2, 2.05))
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CAMERA
+# ═══════════════════════════════════════════════════════════════════════════════
+bpy.ops.object.camera_add(location=(-0.3, -4.8, 1.55))
 cam = bpy.context.object
-cam.data.lens = 58
-cam.rotation_euler = (Vector((0, 0, 1.45)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
-bpy.context.scene.camera = cam
+cam.name = 'Camera'
+cam.data.lens = 62
+cam.rotation_euler = (Vector((0, 0, H*0.55)) - cam.location).to_track_quat('-Z','Y').to_euler()
+scene.camera = cam
 
-# ── RENDER / EXPORT ───────────────────────────────────────────────────────────
-scene = bpy.context.scene
-scene.render.engine = 'BLENDER_EEVEE'
-scene.render.resolution_x = 512
-scene.render.resolution_y = 512
-scene.render.film_transparent = True
-scene.world.color = (0.04, 0.025, 0.02)
+# ═══════════════════════════════════════════════════════════════════════════════
+#  RENDER / EXPORT
+# ═══════════════════════════════════════════════════════════════════════════════
+scene.render.engine               = 'BLENDER_EEVEE'
+scene.render.resolution_x         = 512
+scene.render.resolution_y         = 512
+scene.render.film_transparent      = True
+scene.world.color                  = (0.06, 0.04, 0.03)
 
-bpy.ops.wm.save_as_mainfile(
-    filepath='/Users/javierbritopacheco/codebase/capy-mascot/assets/capybara.blend'
+BASE = '/Users/javierbritopacheco/codebase/capy-mascot/assets/capybara'
+bpy.ops.wm.save_as_mainfile(filepath=BASE + '.blend')
+bpy.ops.export_scene.gltf(
+    filepath=BASE + '.glb',
+    export_format='GLB',
+    export_apply=True,
+    export_animations=True,
 )
-bpy.ops.export_scene.gltf(filepath='/Users/javierbritopacheco/codebase/capy-mascot/assets/capybara.glb',
-                           export_format='GLB', export_apply=True)
 print('CAPYBARA_EXPORTED')

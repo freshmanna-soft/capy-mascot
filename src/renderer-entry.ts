@@ -108,9 +108,18 @@ threeKey.position.set(-3, 5, 6);
 threeScene.add(threeKey);
 let threeReady = false;
 const threeClock = new THREE.Clock();
+let mixer: THREE.AnimationMixer | null = null;
 
 new GLTFLoader().load('assets/capybara.glb', (gltf) => {
   threeRoot.add(gltf.scene);
+  // Play all embedded animations (breathing + head bob) via AnimationMixer.
+  // Falls back gracefully to the manual sway below if the GLB has no clips.
+  if (gltf.animations.length > 0) {
+    mixer = new THREE.AnimationMixer(gltf.scene);
+    for (const clip of gltf.animations) {
+      mixer.clipAction(clip).play();
+    }
+  }
   document.body.classList.add('three-ready');
   threeReady = true;
 }, undefined, (error) => {
@@ -197,7 +206,11 @@ function loop(now: number) {
   renderer.render(now);
   threeControls.update();
   if (threeReady) {
-    const elapsed = threeClock.getElapsedTime();
+    const delta = threeClock.getDelta();
+    mixer?.update(delta);
+    // Gentle idle sway: applied to the root group so it overlays on top of
+    // whatever the GLB's own animation clips are doing to individual bones.
+    const elapsed = threeClock.elapsedTime;
     threeRoot.position.y = avatarSettings.avatarY + Math.sin(elapsed * 2.1) * 0.035;
     threeRoot.rotation.y = Math.sin(elapsed * 0.7) * 0.08;
     threeRenderer.render(threeScene, threeCamera);
