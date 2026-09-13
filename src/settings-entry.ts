@@ -25,20 +25,19 @@ renderer.setClearColor(0x000000, 0);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-camera.position.set(0, -10, 2.45);
+camera.position.set(0, 1.6, 10);
 
 const root = new THREE.Group();
-root.rotation.y = Math.PI;
 scene.add(root);
 scene.add(new THREE.HemisphereLight(0xffead5, 0x2a1710, 2.4));
 const key = new THREE.DirectionalLight(0xfff1dc, 3.2);
-key.position.set(-3, -5, 6);
+key.position.set(-3, 5, 6);
 scene.add(key);
 
-// Orbits around the same point the fixed mascot-window camera looks at, so
-// the preview opens on the familiar framing before you ever drag.
+// Orbits around the same focal point as the floating mascot window so the
+// preview opens on the familiar framing before you ever drag.
 const controls = new OrbitControls(camera, canvas);
-controls.target.set(0, 0, 1.45);
+controls.target.set(0, 1.6, 0);
 controls.enablePan = false;
 controls.minDistance = 3;
 controls.maxDistance = 16;
