@@ -18,6 +18,7 @@ declare global {
       micError: () => void;
       logVadCalibration: (threshold: number) => void;
       quit: () => void;
+      showContextMenu: () => void;
       getSettings: () => Promise<AvatarSettings>;
       setSettings: (patch: Partial<AvatarSettings>) => Promise<AvatarSettings>;
       requestMicrophone: () => Promise<boolean>;
@@ -446,9 +447,9 @@ window.mascotAPI.onRecordControl((action) => {
   else stopRecording();
 });
 
-// Right-click to quit — a frameless always-on-top window has no other obvious
-// way to close it.
+// Right-click opens the tray context menu (Settings, Restart, Quit) — quitting
+// directly on right-click was too easy to trigger by accident.
 window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
-  window.mascotAPI.quit();
+  window.mascotAPI.showContextMenu();
 });

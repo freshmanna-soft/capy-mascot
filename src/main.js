@@ -666,3 +666,4 @@ app.on('will-quit', () => globalShortcut.unregisterAll());
 // Let the renderer's own click-to-drag (see index.html) work despite `frame:false`.
 ipcMain.on('mascot:quit', () => app.quit());
 ipcMain.on('mascot:restart', () => { app.relaunch(); app.exit(0); });
+ipcMain.on('mascot:context-menu', () => { if (tray) tray.popUpContextMenu(); });

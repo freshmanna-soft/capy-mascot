@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('mascotAPI', {
   logVadCalibration: (threshold) => ipcRenderer.send('mascot:vad-calibration', threshold),
   micError: () => ipcRenderer.send('mascot:mic-error'),
   quit: () => ipcRenderer.send('mascot:quit'),
+  showContextMenu: () => ipcRenderer.send('mascot:context-menu'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   requestMicrophone: () => ipcRenderer.invoke('mic:request'),
   openMicrophoneSettings: () => ipcRenderer.send('mic:open-settings'),
