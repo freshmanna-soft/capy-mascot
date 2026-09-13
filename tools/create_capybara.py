@@ -9,7 +9,6 @@ bpy.ops.object.delete(use_global=False)
 
 def material(name, color, roughness=0.82):
     mat = bpy.data.materials.new(name)
-    mat.diffuse_color = (*color, 1.0)
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes.get('Principled BSDF')
     bsdf.inputs['Base Color'].default_value = (*color, 1.0)
@@ -17,73 +16,111 @@ def material(name, color, roughness=0.82):
     return mat
 
 
-fur = material('Capy fur', (0.43, 0.24, 0.14))
-fur_light = material('Capy warm fur', (0.66, 0.40, 0.23))
-muzzle_mat = material('Muzzle', (0.70, 0.52, 0.37))
-dark = material('Eyes and nose', (0.035, 0.022, 0.017), 0.42)
-feet_mat = material('Feet', (0.29, 0.14, 0.085))
+# Capybara palette — warm brown rodent tones
+fur       = material('Capy fur',       (0.38, 0.22, 0.11))   # dark warm brown
+fur_belly = material('Capy belly',     (0.55, 0.38, 0.20))   # lighter underside
+muzzle_m  = material('Muzzle',         (0.62, 0.46, 0.30))   # pinkish-tan muzzle
+dark_m    = material('Dark',           (0.03, 0.018, 0.013), 0.35)  # eyes / nostrils
+feet_m    = material('Feet',           (0.25, 0.12, 0.06))   # darker hooves
 
 
-def uv(name, location, scale, mat, segments=16, rings=10):
+def uv(name, location, scale, mat, segments=20, rings=12):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=rings, location=location)
     obj = bpy.context.object
     obj.name = name
     obj.scale = scale
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    bpy.ops.object.transform_apply(scale=True)
     obj.data.materials.append(mat)
     bpy.ops.object.shade_smooth()
     return obj
 
 
-def cube(name, location, scale, mat, bevel=0.08):
+def box(name, location, scale, mat, bevel=0.07):
     bpy.ops.mesh.primitive_cube_add(location=location)
     obj = bpy.context.object
     obj.name = name
     obj.scale = scale
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    bpy.ops.object.transform_apply(scale=True)
     obj.data.materials.append(mat)
-    bevel_mod = obj.modifiers.new('Soft edges', 'BEVEL')
-    bevel_mod.width = bevel
-    bevel_mod.segments = 2
+    mod = obj.modifiers.new('bevel', 'BEVEL')
+    mod.width = bevel
+    mod.segments = 3
     bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.modifier_apply(modifier=bevel_mod.name)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.ops.object.shade_smooth()
     return obj
 
-# Body and head: a friendly, broad low-poly silhouette.
-uv('Body', (0.0, 0.0, 1.02), (1.28, 0.78, 0.78), fur, 20, 12)
-uv('Chest', (0.0, -0.66, 1.15), (0.78, 0.20, 0.52), fur_light, 16, 10)
-uv('Head', (0.0, -0.18, 2.00), (0.84, 0.62, 0.70), fur, 20, 12)
-uv('Muzzle', (0.0, -0.78, 1.82), (0.56, 0.23, 0.31), muzzle_mat, 16, 10)
 
-# Small rounded ears set high and wide.
-for side in (-1, 1):
-    uv('Ear', (side * 0.62, -0.12, 2.43), (0.16, 0.12, 0.18), fur, 12, 8)
-    uv('Ear inner', (side * 0.62, -0.22, 2.43), (0.08, 0.03, 0.09), muzzle_mat, 12, 8)
+# ── BODY ────────────────────────────────────────────────────────────────────
+# Capybaras are barrel-shaped: very long, wide, and low to the ground.
+# X = left/right width, Y = front/back depth, Z = height
+body = uv('Body', (0.0, 0.0, 1.10), (1.10, 1.55, 0.72), fur, 24, 14)
 
-# Eyes, nose, and tiny smile.
-for side in (-1, 1):
-    uv('Eye', (side * 0.31, -0.76, 2.14), (0.095, 0.045, 0.085), dark, 16, 10)
-    uv('Brow', (side * 0.31, -0.79, 2.29), (0.13, 0.025, 0.035), dark, 12, 8)
-uv('Nose', (0.0, -1.02, 1.82), (0.15, 0.06, 0.09), dark, 12, 8)
+# Belly patch — flattened sphere on the underside
+uv('Belly', (0.0, 0.0, 0.55), (0.80, 1.10, 0.28), fur_belly, 20, 10)
 
-# Four simple feet keep the silhouette readable at small app sizes.
-for side in (-1, 1):
-    for y in (-0.34, 0.36):
-        cube('Foot', (side * 0.70, y, 0.46), (0.18, 0.25, 0.12), feet_mat, 0.10)
+# ── HEAD ─────────────────────────────────────────────────────────────────────
+# Capybara head is the most distinctive feature:
+# - Nearly as wide as the body
+# - Very flat on top (no dome)
+# - Enormous rectangular muzzle that makes up ~half the face height
+# - Head sits directly on the body with almost no neck
 
-# A small tail peeks from behind the body.
-uv('Tail', (0.0, 0.72, 1.28), (0.18, 0.18, 0.18), fur_light, 12, 8)
+# Braincase — flat-topped, wide
+uv('Head', (0.0, -1.28, 1.72), (0.82, 0.58, 0.46), fur, 20, 12)
 
-# Groundless studio lighting; the app supplies its own transparent stage.
-bpy.ops.object.select_all(action='SELECT')
-for obj in bpy.context.selected_objects:
-    obj.select_set(True)
+# The huge square muzzle — this is the key capybara feature.
+# It's nearly as wide as the head and very deep (long in Y).
+box('Muzzle', (0.0, -1.82, 1.42), (0.58, 0.44, 0.38), muzzle_m, 0.12)
 
-bpy.ops.object.select_all(action='DESELECT')
+# Upper lip ledge — capybaras have a prominent squared upper lip
+box('Upper lip', (0.0, -2.22, 1.30), (0.52, 0.12, 0.14), muzzle_m, 0.06)
+
+# ── NOSTRILS ──────────────────────────────────────────────────────────────────
+# Wide-set, prominent nostrils on the flat face
+for sx in (-0.20, 0.20):
+    uv('Nostril', (sx, -2.20, 1.50), (0.075, 0.045, 0.055), dark_m, 12, 8)
+
+# ── EYES ─────────────────────────────────────────────────────────────────────
+# Capybara eyes are small, set high and far to the sides of the head,
+# almost on top rather than on the front — a prey-animal eye position.
+for sx in (-0.70, 0.70):
+    uv('Eye', (sx, -1.18, 2.00), (0.075, 0.042, 0.068), dark_m, 16, 10)
+    # White highlight dot
+    uv('Eye shine', (sx - 0.02, -1.26, 2.06), (0.022, 0.010, 0.018),
+       material(f'Shine{sx}', (0.9, 0.9, 0.9), 0.1), 8, 6)
+
+# ── EARS ─────────────────────────────────────────────────────────────────────
+# Capybara ears are small, round, and sit high on the very top of the head,
+# widely spaced — not on the sides like a bear.
+for sx in (-0.62, 0.62):
+    uv('Ear', (sx, -1.15, 2.24), (0.15, 0.10, 0.17), fur, 14, 10)
+    uv('Ear inner', (sx, -1.20, 2.24), (0.08, 0.025, 0.09), muzzle_m, 12, 8)
+
+# ── LEGS ─────────────────────────────────────────────────────────────────────
+# Short, stout legs — capybaras are semi-aquatic and low to the ground.
+# Four legs: front pair and back pair, slight splay outward.
+for sx in (-0.72, 0.72):
+    # Front legs
+    uv('Leg_FL' if sx < 0 else 'Leg_FR',
+       (sx, -0.80, 0.52), (0.22, 0.20, 0.30), fur, 14, 10)
+    box('Hoof_F' if sx < 0 else 'Hoof_FR',
+        (sx, -0.80, 0.28), (0.20, 0.22, 0.10), feet_m, 0.05)
+    # Rear legs
+    uv('Leg_RL' if sx < 0 else 'Leg_RR',
+       (sx, 0.72, 0.54), (0.24, 0.22, 0.32), fur, 14, 10)
+    box('Hoof_R' if sx < 0 else 'Hoof_RR',
+        (sx, 0.72, 0.28), (0.22, 0.24, 0.10), feet_m, 0.05)
+
+# ── TAIL ─────────────────────────────────────────────────────────────────────
+# Capybara tail is a tiny vestigial nub, almost invisible
+uv('Tail', (0.0, 1.50, 1.18), (0.12, 0.15, 0.10), fur_belly, 10, 8)
+
+# ── LIGHTING ─────────────────────────────────────────────────────────────────
 for name, location, energy, size in [
-    ('Key', (-4.0, -5.0, 6.0), 700, 4.0),
-    ('Fill', (4.0, -2.0, 3.5), 350, 3.0),
-    ('Rim', (0.0, 3.5, 4.5), 500, 2.5),
+    ('Key',  (-4.0, -5.0, 6.0), 700, 4.0),
+    ('Fill', ( 4.0, -2.0, 3.5), 350, 3.0),
+    ('Rim',  ( 0.0,  3.5, 4.5), 500, 2.5),
 ]:
     bpy.ops.object.light_add(type='AREA', location=location)
     light = bpy.context.object
@@ -91,16 +128,19 @@ for name, location, energy, size in [
     light.data.energy = energy
     light.data.shape = 'DISK'
     light.data.size = size
-    direction = Vector((0.0, 0.0, 1.3)) - light.location
+    direction = Vector((0.0, 0.0, 1.45)) - light.location
     light.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
 
-# Keep a useful camera in the file for manual inspection in Blender.
+# ── CAMERA ───────────────────────────────────────────────────────────────────
 bpy.ops.object.camera_add(location=(0.0, -8.2, 2.05))
 camera = bpy.context.object
 camera.data.lens = 58
-camera.rotation_euler = (Vector((0.0, 0.0, 1.45)) - camera.location).to_track_quat('-Z', 'Y').to_euler()
+camera.rotation_euler = (
+    Vector((0.0, 0.0, 1.45)) - camera.location
+).to_track_quat('-Z', 'Y').to_euler()
 bpy.context.scene.camera = camera
 
+# ── RENDER SETTINGS ──────────────────────────────────────────────────────────
 scene = bpy.context.scene
 scene.render.engine = 'BLENDER_EEVEE'
 scene.render.resolution_x = 512
@@ -109,8 +149,14 @@ scene.render.resolution_percentage = 100
 scene.render.film_transparent = True
 scene.world.color = (0.04, 0.025, 0.02)
 
-# Export a portable asset for the Electron app.
+# ── EXPORT ───────────────────────────────────────────────────────────────────
 output = '/Users/javierbritopacheco/codebase/capy-mascot/assets/capybara.glb'
-bpy.ops.wm.save_as_mainfile(filepath='/Users/javierbritopacheco/codebase/capy-mascot/assets/capybara.blend')
-bpy.ops.export_scene.gltf(filepath=output, export_format='GLB', export_apply=True)
+bpy.ops.wm.save_as_mainfile(
+    filepath='/Users/javierbritopacheco/codebase/capy-mascot/assets/capybara.blend'
+)
+bpy.ops.export_scene.gltf(
+    filepath=output,
+    export_format='GLB',
+    export_apply=True,
+)
 print('CAPYBARA_EXPORTED', output)
