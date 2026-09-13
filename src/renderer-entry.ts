@@ -1,6 +1,7 @@
 import { CapybaraRenderer, ClerkMood, type ClerkVisualState } from '../canvas/capybara-renderer';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 declare global {
   interface Window {
@@ -67,6 +68,20 @@ const threeCamera = new THREE.OrthographicCamera(-2, 2, 2, -2, 0.1, 100);
 threeCamera.position.set(0, 1.6, 10);
 threeCamera.up.set(0, 1, 0);
 threeCamera.lookAt(0, 1.6, 0);
+
+// Scroll-wheel zoom only — same feel as the settings preview.
+// Orbit and pan are disabled so the window still drags normally;
+// only the wheel event is consumed by controls.
+const threeControls = new OrbitControls(threeCamera, threeCanvas);
+threeControls.target.set(0, 1.6, 0);
+threeControls.enableRotate = false;
+threeControls.enablePan = false;
+threeControls.enableZoom = true;
+threeControls.zoomSpeed = 0.6;
+threeControls.minZoom = 0.4;
+threeControls.maxZoom = 3.0;
+threeControls.enableDamping = true;
+threeControls.dampingFactor = 0.12;
 const threeRoot = new THREE.Group();
 threeRoot.scale.setScalar(0.78);
 threeRoot.position.y = 0;
@@ -180,6 +195,7 @@ renderer.plop(); // entrance bounce so it's obviously "alive" the moment it appe
 
 function loop(now: number) {
   renderer.render(now);
+  threeControls.update();
   if (threeReady) {
     const elapsed = threeClock.getElapsedTime();
     threeRoot.position.y = avatarSettings.avatarY + Math.sin(elapsed * 2.1) * 0.035;
