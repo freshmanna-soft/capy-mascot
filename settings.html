@@ -29,10 +29,22 @@
   .position div { padding: 10px; border-radius: 8px; background: #271c18; color: #d4c1ad; font-size: 12px; }
   .position strong { display: block; margin-top: 3px; color: #fff0dd; font-size: 15px; }
   #preview-wrap {
-    border-radius: 10px; background: #0e0a08; overflow: hidden;
+    border-radius: 10px; overflow: hidden;
     height: 240px; margin-bottom: 4px;
+    position: relative;
+    background:
+      /* sky gradient */
+      linear-gradient(to bottom, #1a3a2a 0%, #2d5e3a 38%, #3a7a45 60%, #4a9455 75%, #5aaa60 100%);
   }
-  #preview { width: 100%; height: 100%; display: block; cursor: grab; }
+  #preview-wrap::before {
+    /* forest silhouette — layered SVG trees as a data URI */
+    content: '';
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 240' preserveAspectRatio='xMidYMax slice'%3E%3C!-- far trees --%3E%3Cpolygon points='0,180 18,120 36,180' fill='%231e4a28'/%3E%3Cpolygon points='20,185 42,110 64,185' fill='%231a4024'/%3E%3Cpolygon points='50,178 68,118 86,178' fill='%23235430'/%3E%3Cpolygon points='75,183 95,108 115,183' fill='%231e4a28'/%3E%3Cpolygon points='105,180 122,115 139,180' fill='%231a4024'/%3E%3Cpolygon points='130,182 150,105 170,182' fill='%23235430'/%3E%3Cpolygon points='158,179 175,112 192,179' fill='%231e4a28'/%3E%3Cpolygon points='185,184 205,107 225,184' fill='%231a4024'/%3E%3Cpolygon points='218,180 236,114 254,180' fill='%23235430'/%3E%3Cpolygon points='248,182 268,106 288,182' fill='%231e4a28'/%3E%3Cpolygon points='278,179 296,116 314,179' fill='%231a4024'/%3E%3Cpolygon points='308,183 328,109 348,183' fill='%23235430'/%3E%3Cpolygon points='338,180 356,113 374,180' fill='%231e4a28'/%3E%3Cpolygon points='362,184 382,107 400,184' fill='%231a4024'/%3E%3C!-- ground --%3E%3Crect x='0' y='180' width='400' height='60' fill='%232d5e2a'/%3E%3C!-- near trees --%3E%3Cpolygon points='-10,240 22,140 54,240' fill='%230f2e18'/%3E%3Cpolygon points='30,240 68,130 106,240' fill='%230d2815'/%3E%3Cpolygon points='85,240 118,145 151,240' fill='%230f2e18'/%3E%3Cpolygon points='140,240 175,128 210,240' fill='%230d2815'/%3E%3Cpolygon points='195,240 225,138 255,240' fill='%230f2e18'/%3E%3Cpolygon points='248,240 282,132 316,240' fill='%230d2815'/%3E%3Cpolygon points='305,240 338,142 371,240' fill='%230f2e18'/%3E%3Cpolygon points='358,240 390,136 422,240' fill='%230d2815'/%3E%3C!-- ground cover --%3E%3Cellipse cx='200' cy='215' rx='200' ry='30' fill='%23234e20' opacity='0.7'/%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: center bottom;
+  }
+  #preview { width: 100%; height: 100%; display: block; cursor: grab; position: relative; z-index: 1; }
   #preview:active { cursor: grabbing; }
   .preview-hint { margin: 6px 0 0; font-size: 11px; color: #8a7a6b; }
   .actions { display: flex; gap: 8px; margin-top: 24px; }
