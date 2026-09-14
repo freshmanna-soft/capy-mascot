@@ -13,8 +13,10 @@ bpy.ops.object.delete(use_global=False)
 
 
 # ── MATERIALS ─────────────────────────────────────────────────────────────────
-def toon_mat(name, hex_color, roughness=1.0):
-    """Principled BSDF — exports base colour correctly to glTF/GLB PBR."""
+def toon_mat(name, hex_color, roughness=0.55):
+    """Principled BSDF — exports base colour correctly to glTF/GLB PBR.
+    Lower roughness so light bounces back and colours read at face value
+    rather than being darkened by diffuse absorption."""
     r = int(hex_color[1:3], 16) / 255
     g = int(hex_color[3:5], 16) / 255
     b = int(hex_color[5:7], 16) / 255
@@ -24,19 +26,19 @@ def toon_mat(name, hex_color, roughness=1.0):
     tree.nodes.clear()
     out  = tree.nodes.new('ShaderNodeOutputMaterial')
     bsdf = tree.nodes.new('ShaderNodeBsdfPrincipled')
-    bsdf.inputs['Base Color'].default_value    = (r, g, b, 1.0)
-    bsdf.inputs['Roughness'].default_value     = roughness
-    bsdf.inputs['Metallic'].default_value      = 0.0
+    bsdf.inputs['Base Color'].default_value         = (r, g, b, 1.0)
+    bsdf.inputs['Roughness'].default_value          = roughness
+    bsdf.inputs['Metallic'].default_value           = 0.0
     bsdf.inputs['Specular IOR Level'].default_value = 0.0
     tree.links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     return m
 
-FUR       = toon_mat('Fur',      '#f9bfcc')   # Slowpoke bubblegum pink
-FUR_DARK  = toon_mat('FurDark',  '#e8829a')   # medium rose shadow
-BELLY     = toon_mat('Belly',    '#fff0f4')   # almost-white blush belly
+FUR       = toon_mat('Fur',      '#ffb6c8')   # true Slowpoke pastel pink
+FUR_DARK  = toon_mat('FurDark',  '#f07090')   # deeper rose shadow
+BELLY     = toon_mat('Belly',    '#fff5f8')   # near-white blush belly
 DARK      = toon_mat('Dark',     '#4a1020')   # dark maroon eyes / nostrils
 OUTLINE   = toon_mat('Outline',  '#2e0a15')   # dark maroon ink outline
-CLAW      = toon_mat('Claw',     '#f5f0e8')   # cream-white claws / fangs
+CLAW      = toon_mat('Claw',     '#f8f4ec')   # cream-white claws / fangs
 
 
 def outline_mod(obj, thickness=0.04):
@@ -244,14 +246,16 @@ for sx in (-0.78, 0.78):
     p.data.materials.append(FUR_DARK)
     subdiv(p, 2)
     outline_mod(p, 0.03)
-    # hind claws — three small cones fanning forward from the paw
+    # hind claws — three small cones poking forward (+Y) from the hind paw tip
+    hind_front_y = D*0.55 + 0.30   # just past the front face of the hind paw sphere
     for ci, cx_off in enumerate((-0.07, 0.0, 0.07)):
-        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.035, radius2=0.004,
-            depth=0.12,
-            location=(sx * 1.1 + cx_off, D*0.55 + 0.14, 0.03))
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.032, radius2=0.003,
+            depth=0.11,
+            location=(sx * 1.1 + cx_off, hind_front_y + 0.05, 0.08))
         cl = bpy.context.object
         cl.name = f'HindClaw{ci}'
-        cl.rotation_euler = (math.radians(80), 0, 0)
+        # point forward along +Y (rotate –90° around X)
+        cl.rotation_euler = (math.radians(-90), 0, 0)
         cl.data.materials.append(CLAW)
         bpy.ops.object.shade_smooth()
 
@@ -277,14 +281,16 @@ for sx in (-1, 1):
     paw.data.materials.append(FUR_DARK)
     subdiv(paw, 2)
     outline_mod(paw, 0.025)
-    # front claws — three small cones curling downward off the paw edge
+    # front claws — three small cones poking forward (–Y) from the paw front edge
+    paw_front_y = -D*0.95 - 0.13   # just past the front face of the paw sphere
     for ci, cx_off in enumerate((-0.06, 0.0, 0.06)):
-        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.032, radius2=0.003,
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.030, radius2=0.003,
             depth=0.10,
-            location=(sx * 0.18 + cx_off, -D*0.95 - 0.11, H*0.22 - 0.04))
+            location=(sx * 0.18 + cx_off, paw_front_y - 0.05, H*0.22))
         cl = bpy.context.object
         cl.name = f'FrontClaw{ci}'
-        cl.rotation_euler = (math.radians(100), 0, 0)
+        # point forward along –Y (cone default points along +Z, rotate 90° around X)
+        cl.rotation_euler = (math.radians(90), 0, 0)
         cl.data.materials.append(CLAW)
         bpy.ops.object.shade_smooth()
 
