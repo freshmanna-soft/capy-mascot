@@ -29,11 +29,11 @@ def toon_mat(name, hex_color, roughness=1.0):
     tree.links.new(diff.outputs['BSDF'], out.inputs['Surface'])
     return m
 
-FUR       = toon_mat('Fur',      '#b5733a')   # warm medium brown
-FUR_DARK  = toon_mat('FurDark',  '#8a4e22')   # shadow / underside
-BELLY     = toon_mat('Belly',    '#d4956a')   # lighter belly / muzzle
-DARK      = toon_mat('Dark',     '#3d1f0d')   # eyes, nostrils, outline
-OUTLINE   = toon_mat('Outline',  '#2a1408')   # solidify outline colour
+FUR       = toon_mat('Fur',      '#9b59d0')   # mid purple
+FUR_DARK  = toon_mat('FurDark',  '#6b2fa0')   # deep purple shadow
+BELLY     = toon_mat('Belly',    '#d4b8f0')   # pale lavender belly / muzzle
+DARK      = toon_mat('Dark',     '#2d1045')   # dark indigo eyes / nostrils
+OUTLINE   = toon_mat('Outline',  '#1e0b33')   # deep purple outline
 
 
 def outline_mod(obj, thickness=0.04):
@@ -257,7 +257,7 @@ shadow.name = 'Shadow'
 shadow.scale = (1.0, 0.7, 1.0)
 bpy.ops.object.transform_apply(scale=True)
 bpy.ops.object.convert(target='MESH')
-shadow_m = toon_mat('Shadow', '#1a0d06')
+shadow_m = toon_mat('Shadow', '#1a0a2e')
 shadow_m.blend_method = 'BLEND'
 # Make it semi-transparent
 shadow_m.node_tree.nodes.clear()
