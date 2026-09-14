@@ -29,11 +29,12 @@ def toon_mat(name, hex_color, roughness=1.0):
     tree.links.new(diff.outputs['BSDF'], out.inputs['Surface'])
     return m
 
-FUR       = toon_mat('Fur',      '#9b59d0')   # mid purple
-FUR_DARK  = toon_mat('FurDark',  '#6b2fa0')   # deep purple shadow
-BELLY     = toon_mat('Belly',    '#d4b8f0')   # pale lavender belly / muzzle
-DARK      = toon_mat('Dark',     '#2d1045')   # dark indigo eyes / nostrils
-OUTLINE   = toon_mat('Outline',  '#1e0b33')   # deep purple outline
+FUR       = toon_mat('Fur',      '#f9bfcc')   # Slowpoke bubblegum pink
+FUR_DARK  = toon_mat('FurDark',  '#e8829a')   # medium rose shadow
+BELLY     = toon_mat('Belly',    '#fff0f4')   # almost-white blush belly
+DARK      = toon_mat('Dark',     '#4a1020')   # dark maroon eyes / nostrils
+OUTLINE   = toon_mat('Outline',  '#2e0a15')   # dark maroon ink outline
+CLAW      = toon_mat('Claw',     '#f5f0e8')   # cream-white claws / fangs
 
 
 def outline_mod(obj, thickness=0.04):
@@ -158,6 +159,21 @@ for sx in (-0.18, 0.18):
     n.data.materials.append(DARK)
     bpy.ops.object.shade_smooth()
 
+# ── FANGS ─────────────────────────────────────────────────────────────────────
+# Two big downward-pointing fangs peeking out from the lower jaw.
+# Placed at the bottom edge of the muzzle, slightly inside, curving forward.
+fang_base_y = -D*0.3 - HD*0.85 - MD*0.2
+fang_base_z = head_z + 0.01   # just below muzzle bottom
+for sx in (-0.18, 0.18):
+    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.055, radius2=0.004,
+        depth=0.20,
+        location=(sx, fang_base_y, fang_base_z))
+    fang = bpy.context.object
+    fang.name = 'Fang'
+    fang.rotation_euler = (math.radians(-10), 0, 0)   # slight forward tilt
+    fang.data.materials.append(CLAW)
+    bpy.ops.object.shade_smooth()
+
 # ── EYES ──────────────────────────────────────────────────────────────────────
 # Half-closed content eyes — the reference has soft squinted eyes.
 # Simple dark ellipses, slightly to the sides of the head top.
@@ -226,6 +242,16 @@ for sx in (-0.78, 0.78):
     p.data.materials.append(FUR_DARK)
     subdiv(p, 2)
     outline_mod(p, 0.03)
+    # hind claws — three small cones fanning forward from the paw
+    for ci, cx_off in enumerate((-0.07, 0.0, 0.07)):
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.035, radius2=0.004,
+            depth=0.12,
+            location=(sx * 1.1 + cx_off, D*0.55 + 0.14, 0.03))
+        cl = bpy.context.object
+        cl.name = f'HindClaw{ci}'
+        cl.rotation_euler = (math.radians(80), 0, 0)
+        cl.data.materials.append(CLAW)
+        bpy.ops.object.shade_smooth()
 
 # ── FRONT ARMS / PAWS ─────────────────────────────────────────────────────────
 # Short stubby arms folded across the belly — the relaxed crossed-arm pose.
@@ -249,6 +275,16 @@ for sx in (-1, 1):
     paw.data.materials.append(FUR_DARK)
     subdiv(paw, 2)
     outline_mod(paw, 0.025)
+    # front claws — three small cones curling downward off the paw edge
+    for ci, cx_off in enumerate((-0.06, 0.0, 0.06)):
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.032, radius2=0.003,
+            depth=0.10,
+            location=(sx * 0.18 + cx_off, -D*0.95 - 0.11, H*0.22 - 0.04))
+        cl = bpy.context.object
+        cl.name = f'FrontClaw{ci}'
+        cl.rotation_euler = (math.radians(100), 0, 0)
+        cl.data.materials.append(CLAW)
+        bpy.ops.object.shade_smooth()
 
 # ── GROUND SHADOW ─────────────────────────────────────────────────────────────
 bpy.ops.mesh.primitive_circle_add(vertices=32, radius=0.9, location=(0, 0.05, 0.001))
@@ -257,7 +293,7 @@ shadow.name = 'Shadow'
 shadow.scale = (1.0, 0.7, 1.0)
 bpy.ops.object.transform_apply(scale=True)
 bpy.ops.object.convert(target='MESH')
-shadow_m = toon_mat('Shadow', '#1a0a2e')
+shadow_m = toon_mat('Shadow', '#2e0a15')
 shadow_m.blend_method = 'BLEND'
 # Make it semi-transparent
 shadow_m.node_tree.nodes.clear()
@@ -297,9 +333,9 @@ for frame, hz in [(1, head_z), (20, head_z+0.02), (60, head_z-0.015), (90, head_
 #  LIGHTING
 # ═══════════════════════════════════════════════════════════════════════════════
 for name, loc, energy, size in [
-    ('Key',  (-2.5, -4.0, 5.0), 500, 3.0),
-    ('Fill', ( 3.0, -1.5, 3.0), 220, 2.5),
-    ('Rim',  ( 0.0,  3.0, 4.0), 380, 2.0),
+    ('Key',  (-2.5, -4.0, 5.0), 900, 3.0),
+    ('Fill', ( 3.0, -1.5, 3.0), 500, 2.5),
+    ('Rim',  ( 0.0,  3.0, 4.0), 600, 2.0),
 ]:
     bpy.ops.object.light_add(type='AREA', location=loc)
     lt = bpy.context.object
@@ -326,7 +362,7 @@ scene.render.engine               = 'BLENDER_EEVEE'
 scene.render.resolution_x         = 512
 scene.render.resolution_y         = 512
 scene.render.film_transparent      = True
-scene.world.color                  = (0.06, 0.04, 0.03)
+scene.world.color                  = (0.18, 0.16, 0.18)   # neutral grey tinted slightly pink
 
 BASE = '/Users/javierbritopacheco/codebase/capy-mascot/assets/capybara'
 bpy.ops.wm.save_as_mainfile(filepath=BASE + '.blend')
