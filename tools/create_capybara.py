@@ -14,7 +14,7 @@ bpy.ops.object.delete(use_global=False)
 
 # ── MATERIALS ─────────────────────────────────────────────────────────────────
 def toon_mat(name, hex_color, roughness=1.0):
-    """Flat diffuse — no specularity, pure base colour for toon look."""
+    """Principled BSDF — exports base colour correctly to glTF/GLB PBR."""
     r = int(hex_color[1:3], 16) / 255
     g = int(hex_color[3:5], 16) / 255
     b = int(hex_color[5:7], 16) / 255
@@ -22,11 +22,13 @@ def toon_mat(name, hex_color, roughness=1.0):
     m.use_nodes = True
     tree = m.node_tree
     tree.nodes.clear()
-    out   = tree.nodes.new('ShaderNodeOutputMaterial')
-    diff  = tree.nodes.new('ShaderNodeBsdfDiffuse')
-    diff.inputs['Color'].default_value   = (r, g, b, 1.0)
-    diff.inputs['Roughness'].default_value = roughness
-    tree.links.new(diff.outputs['BSDF'], out.inputs['Surface'])
+    out  = tree.nodes.new('ShaderNodeOutputMaterial')
+    bsdf = tree.nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.inputs['Base Color'].default_value    = (r, g, b, 1.0)
+    bsdf.inputs['Roughness'].default_value     = roughness
+    bsdf.inputs['Metallic'].default_value      = 0.0
+    bsdf.inputs['Specular IOR Level'].default_value = 0.0
+    tree.links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     return m
 
 FUR       = toon_mat('Fur',      '#f9bfcc')   # Slowpoke bubblegum pink
